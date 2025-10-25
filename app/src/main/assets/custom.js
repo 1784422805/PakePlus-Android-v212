@@ -1,26 +1,78 @@
-// very important, if you don't know what it is, don't touch it
-// 非常重要，不懂代码不要动，这里可以解决80%的问题，也可以生产1000+的bug
+// 重要：移动端Tauri链接处理代码
+const { WebviewWindow } = window.__TAURI__.webviewWindow;
+
+// 判断是否为移动设备
+function isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+// 处理链接点击
 const hookClick = (e) => {
-    const origin = e.target.closest('a')
-    const isBaseTargetBlank = document.querySelector(
-        'head base[target="_blank"]'
-    )
-    console.log('origin', origin, isBaseTargetBlank)
-    if (
-        (origin && origin.href && origin.target === '_blank') ||
-        (origin && origin.href && isBaseTargetBlank)
-    ) {
-        e.preventDefault()
-        console.log('handle origin', origin)
-        location.href = origin.href
-    } else {
-        console.log('not handle origin', origin)
+    const origin = e.target.closest('a');
+    const isBaseTargetBlank = document.querySelector('head base[target="_blank"]');
+    
+    if ((origin && origin.href && origin.target === '_blank') || 
+        (origin && origin.href && isBaseTargetBlank)) {
+        
+        e.preventDefault();
+        console.log('在Tauri窗口中打开:', origin.href);
+        
+        const label = `external_${Date.now()}`;
+        const isMobile = isMobileDevice();
+        
+        // 移动设备配置：全屏显示
+        if (isMobile) {
+            new WebviewWindow(label, {
+                url: origin.href,
+                fullscreen: true,
+                title: '新窗口',
+                resizable: false,
+                decorations: false,
+                visible: true
+            });
+        } 
+        // 桌面设备配置
+        else {
+            new WebviewWindow(label, {
+                url: origin.href,
+                width: 800,
+                height: 600,
+                center: true,
+                title: '新窗口',
+                resizable: true,
+                visible: true
+            });
+        }
     }
 }
 
+// 重写window.open方法
 window.open = function (url, target, features) {
-    console.log('open', url, target, features)
-    location.href = url
+    if (url) {
+        const label = `external_${Date.now()}`;
+        const isMobile = isMobileDevice();
+        
+        if (isMobile) {
+            new WebviewWindow(label, {
+                url: url,
+                fullscreen: true,
+                title: '新窗口',
+                resizable: false,
+                decorations: false,
+                visible: true
+            });
+        } else {
+            new WebviewWindow(label, {
+                url: url,
+                width: features?.includes('width') ? parseInt(features.match(/width=(\d+)/i)?.[1]) : 800,
+                height: features?.includes('height') ? parseInt(features.match(/height=(\d+)/i)?.[1]) : 600,
+                center: true,
+                title: '新窗口',
+                resizable: true
+            });
+        }
+    }
 }
 
-document.addEventListener('click', hookClick, { capture: true })
+// 添加事件监听
+document.addEventListener('click', hookClick, { capture: true });
